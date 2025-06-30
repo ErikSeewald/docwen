@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use anyhow::Context;
 use crate::parse_toml::{Docfig, FileGroup, Settings};
 
-const DEFAULT_TOML: &str = r#"[settings]
+pub const DEFAULT_TOML: &str = r#"[settings]
 target = "src"
 match_extensions = ["h", "c", "hpp", "cc", "cpp"]
 mode = "MATCH_FUNCTION_DOCS"
@@ -72,7 +72,7 @@ pub fn update_toml(path: impl AsRef<Path>) -> anyhow::Result<()>
 
 /// Groups all files defined by the given paths by matching name (stem)
 /// based on the given settings.
-fn group_by_stem<I>(paths: I, settings: &Settings) -> Vec<FileGroup>
+pub fn group_by_stem<I>(paths: I, settings: &Settings) -> Vec<FileGroup>
 where
     I: IntoIterator<Item = PathBuf>,
 {
@@ -93,7 +93,7 @@ where
         // GET STEM
         let stem = match path.file_stem().and_then(OsStr::to_str)
         {
-            Some(s) => s.to_owned(),
+            Some(s) => s.to_owned().to_ascii_lowercase(),
             None => continue,
         };
 
