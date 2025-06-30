@@ -39,7 +39,7 @@ Example:
 target = "target_dir"  # This directory will be checked
 match_case = false     # Specifies whether file names have to match case exactly to be paired
 match_extensions = ["h", "c", "hpp", "cc", "cpp"]  # Files of any of these extensions will be paired together if their names match
-mode = MATCH_FUNCTION_DOCS  # Currently the only mode of operation. The docs of functions with matching names and arguments between file pairs will be checked.
+mode = "MATCH_FUNCTION_DOCS"  # Currently the only mode of operation. The docs of functions with matching names and arguments between file pairs will be checked.
 ignore = ["ignore_this_1", "ignore_this_2"] # List of file names to ignore
 
 # The file pairs that are currently being tracked by docwen
