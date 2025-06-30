@@ -24,9 +24,6 @@ pub struct Settings
 {
     pub target: PathBuf,
 
-    #[serde(default)] // Default to false if key is missing
-    pub match_case: bool,
-
     #[serde(default)]
     pub match_extensions: Vec<String>,
 
@@ -67,6 +64,16 @@ impl Docfig
         Ok(docfig)
     }
 
+    /// Serializes the Docfig to the given file path
+    pub fn write_file(&self, path: impl AsRef<Path>) -> anyhow::Result<()>
+    {
+        let raw = toml::to_string_pretty(self).context("Failed to convert Docfig to TOML")?;
+        fs::write(&path, raw).with_context(||
+            format!("Failed to write to {}", path.as_ref().display()))?;
+
+        Ok(())
+    }
+
     fn validate(&self) -> anyhow::Result<()>
     {
         // No duplicate filegroup names
@@ -79,5 +86,14 @@ impl Docfig
             }
         }
         Ok(())
+    }
+}
+
+impl PartialEq for FileGroup
+{
+    fn eq(&self, other: &Self) -> bool
+    {
+        // Only use name as key
+        self.name.eq(&other.name)
     }
 }

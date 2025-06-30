@@ -1,6 +1,6 @@
 use std::path::{PathBuf};
 use clap::{Parser, Subcommand};
-use docwen::parse_toml::Docfig;
+use docwen::toml_manager;
 
 /// 'docwen' - A tool for automatically checking if docs match between C/C++ header and source files
 #[derive(Parser)]
@@ -47,12 +47,15 @@ fn main() -> anyhow::Result<()>
 
     match cli.command
     {
-        Command::Create { .. } => {}
+        Command::Create { path } =>
+            {
+                let path = path_or_default_toml(path);
+                toml_manager::create_default(&path)?;
+            }
         Command::Update { path } =>
             {
                 let path = path_or_default_toml(path);
-                let docfig = Docfig::from_file(&path);
-                println!("{:?}", docfig);
+                toml_manager::update_toml(&path)?;
             }
         Command::Check { .. } => {}
     }

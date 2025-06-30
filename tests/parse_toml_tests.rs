@@ -27,7 +27,6 @@ mod parse_toml_tests
         let toml = r#"
         [settings]
         target = "src"
-        match_case = true
         match_extensions = ["h", "c"]
         mode = "MATCH_FUNCTION_DOCS"
         ignore = ["some", "thing"]
@@ -46,7 +45,6 @@ mod parse_toml_tests
 
         // SETTINGS
         assert_eq!(docfig.settings.target, std::path::PathBuf::from("src"));
-        assert!(docfig.settings.match_case);
         assert_eq!(docfig.settings.match_extensions, vec!["h", "c"]);
         matches!(docfig.settings.mode, Mode::MatchFunctionDocs);
         assert_eq!(docfig.settings.ignore, vec!["some", "thing"]);
@@ -63,7 +61,6 @@ mod parse_toml_tests
         let path = write_temp_toml(MINIMAL_VALID_TOML);
         let docfig = Docfig::from_file(&path).expect("parse");
 
-        assert!(!docfig.settings.match_case);
         assert!(docfig.settings.match_extensions.is_empty());
         assert!(docfig.settings.ignore.is_empty());
         assert!(docfig.file_groups.is_empty());
@@ -85,7 +82,6 @@ mod parse_toml_tests
         let path = write_temp_toml(toml);
         let docfig = Docfig::from_file(&path).expect("parse");
 
-        assert!(!docfig.settings.match_case);
         assert!(docfig.settings.match_extensions.is_empty());
         assert!(docfig.settings.ignore.is_empty());
     }
