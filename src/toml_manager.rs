@@ -6,7 +6,7 @@ use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use anyhow::Context;
-use crate::parse_toml::{Docfig, FileGroup, Settings};
+use crate::toml_parse::{Docfig, FileGroup, Settings};
 
 pub const DEFAULT_TOML: &str = r#"[settings]
 target = "src"

@@ -1,6 +1,6 @@
 use std::path::{PathBuf};
 use clap::{Parser, Subcommand};
-use docwen::toml_manager;
+use docwen::{docwen_check, toml_manager};
 
 /// 'docwen' - A tool for automatically checking if docs match between C/C++ header and source files
 #[derive(Parser)]
@@ -51,13 +51,30 @@ fn main() -> anyhow::Result<()>
             {
                 let path = path_or_default_toml(path);
                 toml_manager::create_default(&path)?;
+                println!("Created default docwen.toml at {:?}", path);
             }
         Command::Update { path } =>
             {
                 let path = path_or_default_toml(path);
                 toml_manager::update_toml(&path)?;
+                println!("Updated {:?} successfully", path);
             }
-        Command::Check { .. } => {}
+        Command::Check { path } =>
+            {
+                let path = path_or_default_toml(path);
+                let mismatches: Vec<String> = docwen_check::check(path)?;
+                match mismatches.len()
+                {
+                    0 => println!("Found no mismatches!"),
+                    _ =>
+                        {
+                            for m in &mismatches
+                            {
+                                println!("MISMATCH: {}\n", m);
+                            }
+                        }
+                }
+            }
     }
 
     Ok(())
