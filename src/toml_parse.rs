@@ -58,8 +58,9 @@ impl Docfig
         let raw = fs::read_to_string(&path).with_context(||
             format!("Failed to read {}", path.as_ref().display()))?;
 
-        let docfig: Self = toml::from_str(&raw).with_context(||
+        let mut docfig: Self = toml::from_str(&raw).with_context(||
             format!("Failed to parse {}", path.as_ref().display()))?;
+
         docfig.validate()?;
         Ok(docfig)
     }
@@ -74,7 +75,7 @@ impl Docfig
         Ok(())
     }
 
-    fn validate(&self) -> anyhow::Result<()>
+    fn validate(&mut self) -> anyhow::Result<()>
     {
         // No duplicate filegroup names
         let mut seen = HashSet::new();

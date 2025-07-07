@@ -1,6 +1,6 @@
 //! Implements the doc match check functionality of docwen
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap};
 use std::fs;
 use std::path::{Path, PathBuf};
 use crate::c_parse;
@@ -28,19 +28,21 @@ pub fn check(toml_path: impl AsRef<Path>) -> anyhow::Result<Vec<String>>
     let mut mismatches: Vec<String> = Vec::new();
 
     // GET DOCFIG FROM TOML
-    let docfig = Docfig::from_file(toml_path)?;
+    let docfig = Docfig::from_file(&toml_path)?;
 
     // GET ALL FUNCTION POSITIONS THAT NEED TO BE CHECKED
+    let root = toml_path.as_ref().parent().unwrap().join(&docfig.settings.target);
     let mut position_maps: Vec<HashMap<FunctionID, Vec<FilePosition>>> = Vec::new();
     for file_group in docfig.file_groups
     {
-        position_maps.push(c_parse::find_function_positions(file_group.files)?);
+        let abs_files = file_group.files.iter().map(|f| root.join(f)).collect::<Vec<_>>();
+        position_maps.push(c_parse::find_function_positions(abs_files)?);
     }
 
     // CHECK FOR MATCHING DOCS
     for map in position_maps
     {
-        for (id, vec) in map
+        for (_id, vec) in map
         {
             // (Lines, starting_row)
             let sources: Vec<(String, usize)> = vec.iter()
@@ -54,10 +56,12 @@ pub fn check(toml_path: impl AsRef<Path>) -> anyhow::Result<Vec<String>>
             // Check each comment line individually
             while cur_lines.clone().into_iter().any(is_comment)
             {
-                if !doc_lines_match(cur_lines)
+                let to_match = cur_lines.first().unwrap().trim();
+                if cur_lines.iter().any(|f| f.trim() != to_match)
                 {
-                    mismatches.push(format!("{}{} <-- {:?}", id.qualified_name, id.params,
-                                            vec.iter().map(|v| &v.path).collect::<HashSet<_>>()));
+                    mismatches.push(format!("\"{}\"\nat {:?}\nin file group: {:?}",
+                                            to_match, vec.get(0).unwrap(),
+                                            vec.iter().map(|v| v).collect::<Vec<_>>()));
                     break;
                 }
                 offset += 1;
@@ -68,14 +72,6 @@ pub fn check(toml_path: impl AsRef<Path>) -> anyhow::Result<Vec<String>>
     }
 
     Ok(mismatches)
-}
-
-/// Returns whether all lines in the given vec are matching comment lines.
-/// Whitespace is trimmed before checking for equality.
-fn doc_lines_match(lines: Vec<&str>) -> bool
-{
-    let first = lines.first().unwrap().trim();
-    !lines.iter().any(|f| f.trim() != first)
 }
 
 /// Returns whether the given line is a comment line according to docwen c/c++ rules.

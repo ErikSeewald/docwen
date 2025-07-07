@@ -38,7 +38,7 @@ enum Command
     Check
     {
         path: Option<PathBuf>
-    }
+    },
 }
 
 fn main() -> anyhow::Result<()>
@@ -49,7 +49,8 @@ fn main() -> anyhow::Result<()>
     {
         Command::Create { path } =>
             {
-                let path = path_or_default_toml(path);
+                let mut path = path_or_default_toml(path);
+                if !path.ends_with("docwen.toml") { path = path.join("docwen.toml"); }
                 toml_manager::create_default(&path)?;
                 println!("Created default docwen.toml at {:?}", path);
             }

@@ -6,6 +6,7 @@ use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use anyhow::Context;
+use walkdir::WalkDir;
 use crate::toml_parse::{Docfig, FileGroup, Settings};
 
 pub const DEFAULT_TOML: &str = r#"[settings]
@@ -17,7 +18,7 @@ ignore = []
 
 /// Implements the docwen *create* command.
 /// Creates a default *docwen.toml* file at the given path.
-/// Returns an error if the path is invalid or already contains a *docwen.toml*.
+/// Returns an error if the path is invalid or already exists.
 pub fn create_default(path: impl AsRef<Path>) -> anyhow::Result<()>
 {
     let mut file = OpenOptions::new()
@@ -40,11 +41,21 @@ pub fn update_toml(path: impl AsRef<Path>) -> anyhow::Result<()>
 {
     let mut docfig = Docfig::from_file(&path)?;
 
-    let paths: Vec<PathBuf> = walkdir::WalkDir::new(&docfig.settings.target)
+    // Make target absolute
+    let root =  if docfig.settings.target.is_absolute() {&docfig.settings.target} else {
+        &path.as_ref().parent().unwrap().join(&docfig.settings.target)
+    };
+    
+    let paths: Vec<PathBuf> = WalkDir::new(root)
         .into_iter()
         .filter_map(|entry| entry.ok())
         .filter(|e| e.file_type().is_file())
-        .map(|e| e.into_path())
+        .filter_map(|e|
+            e.path()
+                .strip_prefix(root)
+                .ok()
+                .map(Path::to_path_buf)
+        )
         .collect();
 
     let groups: Vec<FileGroup> = group_by_stem(paths, &docfig.settings);

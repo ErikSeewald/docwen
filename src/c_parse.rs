@@ -3,6 +3,7 @@
 use std::path::PathBuf;
 use tree_sitter::{Parser, Node};
 use std::{collections::HashMap, fs, iter};
+use std::collections::HashSet;
 use crate::docwen_check::{FilePosition, FunctionID};
 
 /// Finds all function matches (based on qualifiers, name and parameters)
@@ -28,6 +29,14 @@ where
         let root = tree.root_node();
         extract_functions(root, &filtered, path, &mut functions);
     }
+
+    // Remove duplicate lines
+    for (_, vec) in &mut functions
+    {
+        let mut seen: HashSet<(PathBuf, usize)> = HashSet::new();
+        vec.retain(|item| seen.insert((item.path.clone(), item.row)));
+    }
+    functions.retain(|_, vec| vec.len() > 1 );
 
     Ok(functions)
 }
@@ -88,7 +97,7 @@ fn get_name_and_params(declarator: Node, source: &str) -> (Option<String>, Optio
         match child.kind()
         {
             "identifier" | "qualified_identifier" | "operator_name" |
-            "field_identifier" =>
+            "field_identifier" | "destructor_name" =>
                 {
                     if let Ok(txt) = child.utf8_text(source.as_bytes())
                     {
@@ -103,26 +112,6 @@ fn get_name_and_params(declarator: Node, source: &str) -> (Option<String>, Optio
                         params = Some(txt.to_string())
                     }
                 },
-
-
-            "destructor_name" =>
-                {
-                    let mut sub = child.walk();
-                    let mut pieces = String::from("~");
-                    for part in child.children(&mut sub)
-                    {
-                        if part.kind() == "identifier"
-                        {
-                            if let Ok(txt) = child.utf8_text(source.as_bytes())
-                            {
-                                pieces.push_str(txt);
-                            }
-                            break;
-                        }
-                    }
-                    name = Some(pieces);
-                }
-
             _ => {}
         }
     }
