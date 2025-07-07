@@ -8,7 +8,7 @@ use crate::docwen_check::{FilePosition, FunctionID};
 /// Finds all function matches (based on qualifiers, name and parameters)
 /// in the given list of files.
 /// Maps them by FunctionID -> Vec<FilePosition>
-pub fn find_function_positions<I>(paths: I) -> anyhow::Result<()>
+pub fn find_function_positions<I>(paths: I) -> anyhow::Result<HashMap<FunctionID, Vec<FilePosition>>>
 where
     I: IntoIterator<Item = PathBuf>,
 {
@@ -29,15 +29,7 @@ where
         extract_functions(root, &filtered, path, &mut functions);
     }
 
-    // Output matches
-    for (id, vec) in &functions
-    {
-        let name = &id.qualified_name;
-        let params = &id.params;
-        println!("{name}({params}) -> {:?}", vec);
-    }
-
-    Ok(())
+    Ok(functions)
 }
 
 /// Extracts all functions from the tree spanned by the given root node.
@@ -55,8 +47,8 @@ fn extract_functions(root: Node, source: &str, file: PathBuf,
                     {
                         let pos = FilePosition{
                             path: file.clone(),
-                            row: node.start_position().row + 1,
-                            column: node.start_position().column + 1
+                            row: node.start_position().row,
+                            column: node.start_position().column
                         };
 
                         let entry = map.entry(id).or_insert(Vec::new());

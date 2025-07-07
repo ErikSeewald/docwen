@@ -70,7 +70,7 @@ fn main() -> anyhow::Result<()>
                         {
                             for m in &mismatches
                             {
-                                println!("MISMATCH: {}\n", m);
+                                println!("Mismatch in: {}\n", m);
                             }
                         }
                 }
