@@ -1,3 +1,6 @@
+license = "MIT"
+repository = "https://github.com/ErikSeewald/docwen"
+
 [package]
 name = "docwen"
 version = "0.1.0"
