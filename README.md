@@ -6,6 +6,10 @@ File pairs can be automatically generated (e.g. .h and .c files with matching na
 
 ## Setup
 ### Installation
+At the root of the repository:
+```
+cargo install --path .
+```
 
 ### docwen.toml setup
 Docwen needs a *docwen.toml* file to work with. With
