@@ -44,7 +44,7 @@ mod parse_toml_tests
         let docfig = Docfig::from_file(&path).expect("parse");
 
         // SETTINGS
-        assert_eq!(docfig.settings.target, path.parent().unwrap().join("src"));
+        assert_eq!(docfig.settings.target, PathBuf::from("src"));
         assert_eq!(docfig.settings.match_extensions, vec!["h", "c"]);
         matches!(docfig.settings.mode, Mode::MatchFunctionDocs);
         assert_eq!(docfig.settings.ignore, vec!["some", "thing"]);
