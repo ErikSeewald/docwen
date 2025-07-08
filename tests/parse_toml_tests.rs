@@ -4,7 +4,7 @@ mod parse_toml_tests
     use std::io::Write;
     use std::path::PathBuf;
     use tempfile::{NamedTempFile, TempPath};
-    use docwen::toml_parse::*;
+    use docwen::docfig::*;
 
     const MINIMAL_VALID_TOML: &str = r#"
         [settings]

@@ -3,7 +3,7 @@
 use std::path::PathBuf;
 use tree_sitter::{Parser, Node};
 use std::{collections::HashMap, fs, iter};
-use std::collections::HashSet;
+use anyhow::Context;
 use crate::docwen_check::{FilePosition, FunctionID};
 
 /// Finds all function matches (based on qualifiers, name and parameters)
@@ -24,20 +24,13 @@ where
 
         // IGNORE PREPROCESSOR COMPLETELY
         let filtered: String = mask_preprocessor(&source);
-        let tree = parser.parse(&filtered, None).unwrap();
+        let tree = parser.parse(&filtered, None).with_context(|| "Failed to parse tree")?;
 
         let root = tree.root_node();
         extract_functions(root, &filtered, path, &mut functions);
     }
 
-    // Remove duplicate lines
-    for (_, vec) in &mut functions
-    {
-        let mut seen: HashSet<(PathBuf, usize)> = HashSet::new();
-        vec.retain(|item| seen.insert((item.path.clone(), item.row)));
-    }
     functions.retain(|_, vec| vec.len() > 1 );
-
     Ok(functions)
 }
 
@@ -50,7 +43,7 @@ fn extract_functions(root: Node, source: &str, file: PathBuf,
     visit_all_nodes(root, &mut |node| {
         match node.kind()
         {
-            "function_definition" | "function_declarator" =>
+            "function_definition" | "function_declarator" if !has_definition_ancestor(node) =>
                 {
                     if let Some(id) = get_function_id(node, source)
                     {
@@ -65,7 +58,7 @@ fn extract_functions(root: Node, source: &str, file: PathBuf,
                     }
                 },
 
-            _ => {}
+                _ => {}
         }
     });
 }
@@ -81,6 +74,37 @@ pub fn get_function_id(node: Node, source: &str) -> Option<FunctionID>
 
     let qualified_name = get_qualified_name(node, source, name?);
     Some(FunctionID{qualified_name, params})
+}
+
+/// Returns whether the given node has a 'function_definition' as an ancestor.
+/// This way you can avoid tracking a function twice.
+fn has_definition_ancestor(mut n: Node) -> bool
+{
+    while let Some(parent) = n.parent()
+    {
+        if parent.kind() == "function_definition" { return true; }
+        n = parent;
+    }
+    false
+}
+
+/// Walks from the given node until the function_declarator is found.
+/// Returns None if it could not be found.
+fn find_declarator(n: Node) -> Option<Node>
+{
+    if n.kind() == "function_declarator"
+    {
+        return Some(n);
+    }
+    let mut cur = n.walk();
+    for child in n.children(&mut cur)
+    {
+        if let Some(d) = find_declarator(child)
+        {
+            return Some(d);
+        }
+    }
+    None
 }
 
 /// Gets ((optional) Name, (optional) Params) of the given declarator node based on the given
@@ -197,23 +221,4 @@ where
     {
         visit_all_nodes(child, visit);
     }
-}
-
-/// Walks from the given node until the function_declarator is found.
-/// Returns None if it could not be found.
-fn find_declarator(n: Node) -> Option<Node>
-{
-    if n.kind() == "function_declarator"
-    {
-        return Some(n);
-    }
-    let mut cur = n.walk();
-    for child in n.children(&mut cur)
-    {
-        if let Some(d) = find_declarator(child)
-        {
-            return Some(d);
-        }
-    }
-    None
 }

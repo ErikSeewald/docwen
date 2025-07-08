@@ -3,8 +3,9 @@
 use std::collections::{HashMap};
 use std::fs;
 use std::path::{Path, PathBuf};
-use crate::c_parse;
-use crate::toml_parse::{Docfig};
+use anyhow::Context;
+use crate::{c_parse, toml_manager};
+use crate::docfig::{Docfig};
 
 /// Defines a position (column, row) inside a source file.
 #[derive(Debug)]
@@ -23,6 +24,30 @@ pub struct FunctionID
     pub params: String
 }
 
+/// Defines a structure used by the doc checker for indexing into the
+/// src String by an offset to the init_row.
+/// Generally, the docs are in [init_row-1, init_row-n] for docs of line length n.
+struct LineSource
+{
+    pub src: String, // String containing the source file text
+    pub init_row: usize, // The initial row in the src string (directly below docs)
+}
+
+impl LineSource
+{
+    /// Trims and returns the src line at the given offset from init_row.
+    pub fn trimmed_line_by_offset(&self, offset: isize) -> anyhow::Result<&str>
+    {
+        let row = self.init_row as isize + offset;
+        let trimmed = self.src.lines().nth(row as usize)
+            .with_context(|| format!("Called nth({})", row))?
+            .trim();
+        Ok(trimmed)
+    }
+}
+
+/// Performs 'docwen check'.
+/// Returns a Result containing a Vec of all documentation mismatches that were found.
 pub fn check(toml_path: impl AsRef<Path>) -> anyhow::Result<Vec<String>>
 {
     let mut mismatches: Vec<String> = Vec::new();
@@ -31,7 +56,7 @@ pub fn check(toml_path: impl AsRef<Path>) -> anyhow::Result<Vec<String>>
     let docfig = Docfig::from_file(&toml_path)?;
 
     // GET ALL FUNCTION POSITIONS THAT NEED TO BE CHECKED
-    let root = toml_path.as_ref().parent().unwrap().join(&docfig.settings.target);
+    let root = toml_manager::get_absolute_root(&toml_path, &docfig.settings.target)?;
     let mut position_maps: Vec<HashMap<FunctionID, Vec<FilePosition>>> = Vec::new();
     for file_group in docfig.file_groups
     {
@@ -42,31 +67,33 @@ pub fn check(toml_path: impl AsRef<Path>) -> anyhow::Result<Vec<String>>
     // CHECK FOR MATCHING DOCS
     for map in position_maps
     {
-        for (_id, vec) in map
+        for (_, vec) in map
         {
-            // (Lines, starting_row)
-            let sources: Vec<(String, usize)> = vec.iter()
-                .map(|f| (fs::read_to_string(&f.path).expect("Failed to read source"), f.row))
-                .collect::<Vec<_>>();
+            // Get all sources
+            let sources: Vec<LineSource> = vec.iter()
+                .map(|f| fs::read_to_string(&f.path).map(|src| LineSource{src, init_row: f.row}))
+                .collect::<Result<_, _>>()?;
 
-            let mut offset = 1; // Begin at the line directly above the function
+            // Get lines at the current offset
+            let mut offset = -1; // Begin at the line directly above the function
             let mut cur_lines: Vec<&str> = sources.iter()
-                .map(|s| s.0.lines().nth(s.1 - offset).unwrap()).collect::<Vec<_>>();
+                .map(|s| s.trimmed_line_by_offset(offset))
+                .collect::<Result<_, _>>()?;
 
             // Check each comment line individually
-            while cur_lines.clone().into_iter().any(is_comment)
+            while cur_lines.iter()
+                .any(|s| s.starts_with("//") || s.starts_with("/*") || s.starts_with("*"))
             {
-                let to_match = cur_lines.first().unwrap().trim();
-                if cur_lines.iter().any(|f| f.trim() != to_match)
+                let match_str = cur_lines.first().with_context(||"Failed to get 'match_str'")?;
+                if cur_lines.iter().any(|f| f != match_str)
                 {
-                    mismatches.push(format!("\"{}\"\nat {:?}\nin file group: {:?}",
-                                            to_match, vec.get(0).unwrap(),
-                                            vec.iter().map(|v| v).collect::<Vec<_>>()));
+                    mismatches.push(format_mismatch(match_str, &vec, &toml_path));
                     break;
                 }
-                offset += 1;
+                offset -= 1;
                 cur_lines = sources.iter()
-                    .map(|s| s.0.lines().nth(s.1 - offset).unwrap()).collect::<Vec<_>>();
+                    .map(|s| s.trimmed_line_by_offset(offset))
+                    .collect::<Result<_, _>>()?;
             }
         }
     }
@@ -74,9 +101,18 @@ pub fn check(toml_path: impl AsRef<Path>) -> anyhow::Result<Vec<String>>
     Ok(mismatches)
 }
 
-/// Returns whether the given line is a comment line according to docwen c/c++ rules.
-fn is_comment(line: &str) -> bool
+/// Formats the given vec of file positions with a mismatch at 'match_str'.
+/// Uses the given toml_path to display the file positions as relative paths if possible.
+fn format_mismatch(match_str: &str, vec: &Vec<FilePosition>, toml_path: impl AsRef<Path>) -> String
 {
-    let s = line.trim();
-    s.starts_with("//") || s.starts_with("/*") || s.starts_with("*")
+    // If parent cannot be found, just use the path itself -> strip_prefix will fail and abs path
+    // will be displayed.
+    let parent = toml_path.as_ref().parent().unwrap_or(toml_path.as_ref());
+    
+    let group_str = vec.iter()
+        .map(|p| format!("{:?}:{}:{}",
+                         p.path.strip_prefix(parent).unwrap_or(&p.path),
+                         p.row, p.column))
+        .collect::<Vec<_>>().join(", ");
+    format!("\"{}\"\n-> [{}]", match_str, group_str)
 }

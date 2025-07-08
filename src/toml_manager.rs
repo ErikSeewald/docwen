@@ -7,7 +7,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use anyhow::Context;
 use walkdir::WalkDir;
-use crate::toml_parse::{Docfig, FileGroup, Settings};
+use crate::docfig::{Docfig, FileGroup, Settings};
 
 pub const DEFAULT_TOML: &str = r#"[settings]
 target = "src"
@@ -41,25 +41,22 @@ pub fn update_toml(path: impl AsRef<Path>) -> anyhow::Result<()>
 {
     let mut docfig = Docfig::from_file(&path)?;
 
-    // Make target absolute
-    let root =  if docfig.settings.target.is_absolute() {&docfig.settings.target} else {
-        &path.as_ref().parent().unwrap().join(&docfig.settings.target)
-    };
-    
-    let paths: Vec<PathBuf> = WalkDir::new(root)
+    // Get all file paths
+    let root = get_absolute_root(&path, &docfig.settings.target)?;
+    let paths: Vec<PathBuf> = WalkDir::new(&root)
         .into_iter()
         .filter_map(|entry| entry.ok())
         .filter(|e| e.file_type().is_file())
         .filter_map(|e|
             e.path()
-                .strip_prefix(root)
+                .strip_prefix(&root) // as relative paths
                 .ok()
                 .map(Path::to_path_buf)
         )
         .collect();
 
-    let groups: Vec<FileGroup> = group_by_stem(paths, &docfig.settings);
-    let groups: Vec<FileGroup> = groups.into_iter().filter(|g| g.files.len() > 1).collect();
+    let mut groups: Vec<FileGroup> = group_by_stem(paths, &docfig.settings);
+    groups.retain(|g| g.files.len() > 1);
 
     // Merge (overwrite existing with new versions but do not delete non-existing)
     for g in groups
@@ -91,13 +88,12 @@ where
         settings.match_extensions.clone().into_iter().map(|e| e.to_ascii_lowercase()).collect();
 
     let mut groups: HashMap<String, Vec<PathBuf>> = HashMap::new();
-
     for path in paths
     {
         // SKIP OTHER EXTENSIONS
-        let _ext = match path.extension().and_then(OsStr::to_str)
+        match path.extension().and_then(OsStr::to_str)
         {
-            Some(e) if match_extensions.contains(&e.to_ascii_lowercase()) => e,
+            Some(e) if match_extensions.contains(&e.to_ascii_lowercase()) => {},
             _ => continue,
         };
 
@@ -120,4 +116,17 @@ where
         .into_iter()
         .map(|(name, files)| { FileGroup { name, files } })
         .collect()
+}
+
+/// Returns the absolute root target path defined by the given toml_path and the
+/// (optionally relative to toml_path) target path.
+pub fn get_absolute_root(toml_path: impl AsRef<Path>, target: impl AsRef<Path>)
+    -> anyhow::Result<PathBuf>
+{
+    let path = if target.as_ref().is_absolute() {PathBuf::from(target.as_ref())} else {
+        toml_path.as_ref().parent()
+            .with_context(|| format!("Could not access parent of {:?}", toml_path.as_ref()))?
+            .join(target.as_ref())
+    };
+    Ok(path)
 }

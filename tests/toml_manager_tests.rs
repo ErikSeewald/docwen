@@ -4,8 +4,8 @@ mod toml_manager_tests
     use std::fs;
     use std::path::PathBuf;
     use tempfile::{tempdir, NamedTempFile};
-    use docwen::toml_parse::Mode::MatchFunctionDocs;
-    use docwen::toml_parse::Settings;
+    use docwen::docfig::Mode::MatchFunctionDocs;
+    use docwen::docfig::Settings;
     use docwen::toml_manager::*;
 
     #[test]
