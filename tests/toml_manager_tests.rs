@@ -5,25 +5,25 @@ mod toml_manager_tests
     use std::path::PathBuf;
     use tempfile::{tempdir, NamedTempFile};
     use docwen::docfig::Mode::MatchFunctionDocs;
-    use docwen::docfig::Settings;
+    use docwen::docfig::{Docfig, Settings};
     use docwen::toml_manager::*;
 
     #[test]
     fn create_default_writes_new_file()
     {
-        let dir = tempdir().expect("tmp dir");
+        let dir = tempdir().unwrap();
         let file_path = dir.path().join("docwen.toml");
 
-        create_default(&file_path).expect("create_default failed");
+        create_default(&file_path).unwrap();
 
-        let written = fs::read_to_string(&file_path).expect("read");
+        let written = fs::read_to_string(&file_path).unwrap();
         assert_eq!(written, DEFAULT_TOML);
     }
 
     #[test]
     fn create_default_fails_if_file_exists()
     {
-        let tmp = NamedTempFile::new().expect("tmp file");
+        let tmp = NamedTempFile::new().unwrap();
         fs::write(tmp.path(), b"something").unwrap();
 
         let err = create_default(tmp.path()).unwrap_err();
@@ -92,5 +92,145 @@ mod toml_manager_tests
         let groups = group_by_stem(paths, &settings);
         assert_eq!(groups[0].files.len(), 2);
         assert_eq!(groups[0].name, "foo");
+    }
+
+    #[test]
+    fn group_by_stem_empty_match_extensions()
+    {
+        let settings = make_settings(&[], &[]);
+        let paths = vec![PathBuf::from("foo.c"), PathBuf::from("bar.h")];
+
+        let groups = group_by_stem(paths, &settings);
+        assert!(groups.is_empty());
+    }
+
+    #[test]
+    fn group_by_stem_ignore_list_case_insensitive()
+    {
+        let settings = make_settings(&["c"], &["skipme"]);
+        let paths = vec![PathBuf::from("SkipMe.c"), PathBuf::from("keepme.c")];
+
+        let names: std::collections::HashSet<_> =
+            group_by_stem(paths, &settings).into_iter().map(|g| g.name).collect();
+
+        assert!(!names.contains("skipme"));
+        assert!(names.contains("keepme"));
+    }
+    
+    #[test]
+    fn group_by_stem_handles_dot_files() 
+    {
+        let settings = make_settings(&["c"], &[]);
+        let paths = vec![PathBuf::from(".hidden.c")];
+
+        let groups = group_by_stem(paths, &settings);
+        assert_eq!(groups.len(), 1);
+        assert_eq!(groups[0].name, ".hidden");
+    }
+
+    #[test]
+    fn update_toml_creates_and_updates_groups()
+    {
+        let dir = tempdir().unwrap();
+        let root = dir.path().join("src");
+        fs::create_dir(&root).unwrap();
+
+        fs::write(root.join("foo.c"), "").unwrap();
+        fs::write(root.join("foo.h"), "").unwrap();
+
+        let toml_path = dir.path().join("docwen.toml");
+        create_default(&toml_path).unwrap();
+
+        update_toml(&toml_path).unwrap();
+        let contents = fs::read_to_string(&toml_path).unwrap();
+        assert!(contents.contains("foo.c") && contents.contains("foo.h"));
+    }
+
+    #[test]
+    fn update_toml_augments_group_without_duplication()
+    {
+        let dir  = tempdir().unwrap();
+        let root = dir.path().join("src");
+        fs::create_dir(&root).unwrap();
+
+        fs::write(root.join("foo.c"), "").unwrap();
+        fs::write(root.join("foo.h"), "").unwrap();
+
+        let toml_path = dir.path().join("docwen.toml");
+        create_default(&toml_path).unwrap();
+
+        // append a group ` with only foo.c
+        let mut contents = fs::read_to_string(&toml_path).unwrap();
+        contents.push_str(r#"
+        [[filegroup]]
+        name = "foo"
+        files = ["src/foo.c"]
+        "#);
+        fs::write(&toml_path, contents).unwrap();
+
+        update_toml(&toml_path).unwrap();
+        let docfig: Docfig = Docfig::from_file(&toml_path).unwrap();
+        let foo_groups: Vec<_> =
+            docfig.file_groups.iter().filter(|g| g.name == "foo").collect();
+
+        assert_eq!(foo_groups.len(), 1, "Group duplicated unexpectedly");
+        assert_eq!(
+            foo_groups[0].files.len(),
+            2,
+            "Group was not augmented to include new file"
+        );
+    }
+
+    #[test]
+    fn get_absolute_root_resolves_relative_target()
+    {
+        let toml_path = PathBuf::from("/home/user/project/docwen.toml");
+        let target = PathBuf::from("src");
+        let abs = get_absolute_root(&toml_path, &target).unwrap();
+
+        assert_eq!(abs, PathBuf::from("/home/user/project/src"));
+    }
+
+    #[test]
+    fn get_absolute_root_passes_through_absolute_path()
+    {
+        let target = PathBuf::from("/var/tmp/codebase");
+        let result = get_absolute_root("some/path/docwen.toml", &target).unwrap();
+
+        assert_eq!(result, target);
+    }
+
+    #[test]
+    fn get_absolute_root_with_complex_relative_segments()
+    {
+        let toml_path = PathBuf::from("/home/user/project/dir/docwen.toml");
+        let target    = PathBuf::from("../src/./backend");
+        let abs = get_absolute_root(&toml_path, &target).unwrap();
+        
+        assert_eq!(abs, PathBuf::from("/home/user/project/dir/../src/./backend"));
+    }
+
+    #[test]
+    fn create_default_fails_if_path_is_dir()
+    {
+        let dir = tempdir().unwrap();
+        let err = create_default(dir.path()).unwrap_err();
+        assert!(
+            err.to_string().contains("Failed to create new docwen.toml"),
+            "Unexpected error: {err}"
+        );
+    }
+
+    #[test]
+    fn create_default_fails_if_parent_missing()
+    {
+        let mut path = std::env::temp_dir();
+        path.push("___missing___/docwen.toml");
+
+        let err = create_default(&path).unwrap_err();
+        assert!(
+            err.to_string().contains("Failed to create new docwen.toml"),
+            "Unexpected error: {err}"
+        );
     }
 }

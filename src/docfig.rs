@@ -7,7 +7,7 @@ use serde::{Serialize, Deserialize};
 
 
 /// Represents the entire of *docwen.toml*
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct Docfig
 {
@@ -18,7 +18,7 @@ pub struct Docfig
 }
 
 /// Represents the user-defined settings
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct Settings
 {
@@ -34,7 +34,7 @@ pub struct Settings
 }
 
 /// Operational modes of docwen
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum Mode
 {
@@ -42,7 +42,7 @@ pub enum Mode
 }
 
 /// A single group of files that will be checked for matching docs
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct FileGroup
 {
