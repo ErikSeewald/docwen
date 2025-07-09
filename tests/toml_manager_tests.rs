@@ -135,15 +135,20 @@ mod toml_manager_tests
         let root = dir.path().join("src");
         fs::create_dir(&root).unwrap();
 
-        fs::write(root.join("foo.c"), "").unwrap();
-        fs::write(root.join("foo.h"), "").unwrap();
+        let c_path = root.join("foo.c");
+        let h_path = root.join("foo.h");
+
+        fs::write(&c_path, "").unwrap();
+        fs::write(&h_path, "").unwrap();
 
         let toml_path = dir.path().join("docwen.toml");
         create_default(&toml_path).unwrap();
 
         update_toml(&toml_path).unwrap();
-        let contents = fs::read_to_string(&toml_path).unwrap();
-        assert!(contents.contains("foo.c") && contents.contains("foo.h"));
+        let docfig = Docfig::from_file(&toml_path).unwrap();
+        let files = &docfig.file_groups.get(0).unwrap().files;
+        assert!(files.contains(&PathBuf::from(c_path.strip_prefix(&root).unwrap()))
+            && files.contains(&PathBuf::from(h_path.strip_prefix(&root).unwrap())));
     }
 
     #[test]
@@ -178,6 +183,61 @@ mod toml_manager_tests
             foo_groups[0].files.len(),
             2,
             "Group was not augmented to include new file"
+        );
+    }
+
+    #[test]
+    fn update_toml_deep_paths()
+    {
+        let dir = tempdir().unwrap();
+        let root = dir.path().join("src");
+        let some_dir = root.join("somedir");
+        let even_more = root.join("someotherdir").join("evenmore");
+        fs::create_dir(&root).unwrap();
+        fs::create_dir(&some_dir).unwrap();
+        fs::create_dir_all(&even_more).unwrap();
+
+        let c_path = some_dir.join("foo.c");
+        let h_path = root.join(even_more).join("foo.h");
+
+        fs::write(&c_path, "").unwrap();
+        fs::write(&h_path, "").unwrap();
+
+        let toml_path = dir.path().join("docwen.toml");
+        create_default(&toml_path).unwrap();
+
+        update_toml(&toml_path).unwrap();
+        let docfig = Docfig::from_file(&toml_path).unwrap();
+        let files = &docfig.file_groups.get(0).unwrap().files;
+        assert!(files.contains(&PathBuf::from(c_path.strip_prefix(&root).unwrap()))
+            && files.contains(&PathBuf::from(h_path.strip_prefix(&root).unwrap())));
+    }
+
+
+    #[test]
+    fn update_toml_does_not_delete()
+    {
+        let dir  = tempdir().unwrap();
+        let toml_path = dir.path().join("docwen.toml");
+        create_default(&toml_path).unwrap();
+
+        // append a group ` with only foo.c
+        let mut contents = fs::read_to_string(&toml_path).unwrap();
+        contents.push_str(r#"
+        [[filegroup]]
+        name = "foo"
+        files = ["src/foo.c"]
+        "#);
+        fs::write(&toml_path, contents).unwrap();
+
+        update_toml(&toml_path).unwrap();
+        let docfig: Docfig = Docfig::from_file(&toml_path).unwrap();
+
+        assert_eq!(docfig.file_groups.len(), 1, "Group was deleted unexpectedly");
+        assert_eq!(
+            docfig.file_groups[0].files.len(),
+            1,
+            "Group size changed unexpectedly"
         );
     }
 

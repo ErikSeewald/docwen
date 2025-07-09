@@ -36,7 +36,7 @@ where
 
 /// Extracts all functions from the tree spanned by the given root node.
 /// Uses the given source text and file path to insert the functions into the given map.
-fn extract_functions(root: Node, source: &str, file: PathBuf,
+pub fn extract_functions(root: Node, source: &str, file: PathBuf,
                      map: &mut HashMap<FunctionID, Vec<FilePosition>>)
 {
     // Recursively visit all nodes and apply the function
@@ -78,7 +78,7 @@ pub fn get_function_id(node: Node, source: &str) -> Option<FunctionID>
 
 /// Returns whether the given node has a 'function_definition' as an ancestor.
 /// This way you can avoid tracking a function twice.
-fn has_definition_ancestor(mut n: Node) -> bool
+pub fn has_definition_ancestor(mut n: Node) -> bool
 {
     while let Some(parent) = n.parent()
     {
@@ -90,7 +90,7 @@ fn has_definition_ancestor(mut n: Node) -> bool
 
 /// Walks from the given node until the function_declarator is found.
 /// Returns None if it could not be found.
-fn find_declarator(n: Node) -> Option<Node>
+pub fn find_declarator(n: Node) -> Option<Node>
 {
     if n.kind() == "function_declarator"
     {
@@ -109,7 +109,7 @@ fn find_declarator(n: Node) -> Option<Node>
 
 /// Gets ((optional) Name, (optional) Params) of the given declarator node based on the given
 /// source text.
-fn get_name_and_params(declarator: Node, source: &str) -> (Option<String>, Option<String>)
+pub fn get_name_and_params(declarator: Node, source: &str) -> (Option<String>, Option<String>)
 {
     let mut cur = declarator.walk();
     let mut name: Option<String>   = None;
@@ -144,7 +144,7 @@ fn get_name_and_params(declarator: Node, source: &str) -> (Option<String>, Optio
 
 /// Formats the given func_name with all its scope qualifiers based on the given
 /// source text and starting node.
-fn get_qualified_name(node: Node, source: &str, func_name: String) -> String
+pub fn get_qualified_name(node: Node, source: &str, func_name: String) -> String
 {
     let mut qualifiers = Vec::<String>::new();
     let mut current = node;
@@ -177,8 +177,10 @@ fn get_qualified_name(node: Node, source: &str, func_name: String) -> String
 
 /// Masks out all preprocessor sections of the given src by replacing
 /// it with whitespace that preserves column and row positioning.
-fn mask_preprocessor(src: &str) -> String
+pub fn mask_preprocessor(src: &str) -> String
 {
+    // TODO: Multiline macros currently do not get masked
+    
     let mut out = String::with_capacity(src.len());
 
     // HANDLE EACH LINE SEPARATELY
@@ -211,7 +213,7 @@ fn mask_preprocessor(src: &str) -> String
 }
 
 /// Performs the given FnMut(Node) on all descendents of the given node recursively
-fn visit_all_nodes<F>(node: Node, visit: &mut F)
+pub fn visit_all_nodes<F>(node: Node, visit: &mut F)
 where
     F: FnMut(Node),
 {

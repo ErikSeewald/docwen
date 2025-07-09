@@ -41,7 +41,6 @@ Example:
 # The settings used by docwen
 [settings]
 target = "target_dir"  # This directory will be checked
-match_case = false     # Specifies whether file names have to match case exactly to be paired
 match_extensions = ["h", "c", "hpp", "cc", "cpp"]  # Files of any of these extensions will be paired together if their names match
 mode = "MATCH_FUNCTION_DOCS"  # Currently the only mode of operation. The docs of functions with matching names and arguments between file pairs will be checked.
 ignore = ["ignore_this_1", "ignore_this_2"] # List of file names to ignore
@@ -55,3 +54,8 @@ files = ["example_file_1.h", "example_file_1.c"]
 name = "example_file_2"
 files = ["example_file_2.h", "example_file_2.cpp", "alt_example_file_2.cpp"]
 ```
+
+## TODO
+- Multi-line macros currently break the docwen parser
+- Add a mode that allows for non-qualified function name matching (e.g. docs of child class override can be matched)
+- Expand test suite
