@@ -16,7 +16,7 @@ pub struct FilePosition
     pub column: usize
 }
 
-/// Defines an ID for a function qualified name and params.
+/// Defines an ID for a function through the qualified name and params.
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub struct FunctionID
 {
@@ -27,7 +27,7 @@ pub struct FunctionID
 /// Defines a structure used by the doc checker for indexing into the
 /// src String by an offset to the init_row.
 /// Generally, the docs are in [init_row-1, init_row-n] for docs of line length n.
-struct LineSource
+pub struct LineSource
 {
     pub src: String, // String containing the source file text
     pub init_row: usize, // The initial row in the src string (directly below docs)
@@ -36,13 +36,13 @@ struct LineSource
 impl LineSource
 {
     /// Trims and returns the src line at the given offset from init_row.
-    pub fn trimmed_line_by_offset(&self, offset: isize) -> anyhow::Result<&str>
+    /// Returns "" if the line does not exist.
+    pub fn trimmed_line_by_offset(&self, offset: isize) -> &str
     {
         let row = self.init_row as isize + offset;
-        let trimmed = self.src.lines().nth(row as usize)
-            .with_context(|| format!("Called nth({})", row))?
-            .trim();
-        Ok(trimmed)
+        self.src.lines().nth(row as usize)
+            .unwrap_or("")
+            .trim()
     }
 }
 
@@ -54,6 +54,7 @@ pub fn check(toml_path: impl AsRef<Path>) -> anyhow::Result<Vec<String>>
 
     // GET DOCFIG FROM TOML
     let docfig = Docfig::from_file(&toml_path)?;
+    let abs_target_path = toml_manager::get_absolute_root(&toml_path, &docfig.settings.target)?;
 
     // GET ALL FUNCTION POSITIONS THAT NEED TO BE CHECKED
     let root = toml_manager::get_absolute_root(&toml_path, &docfig.settings.target)?;
@@ -78,7 +79,7 @@ pub fn check(toml_path: impl AsRef<Path>) -> anyhow::Result<Vec<String>>
             let mut offset = -1; // Begin at the line directly above the function
             let mut cur_lines: Vec<&str> = sources.iter()
                 .map(|s| s.trimmed_line_by_offset(offset))
-                .collect::<Result<_, _>>()?;
+                .collect::<Vec<_>>();
 
             // Check each comment line individually
             while cur_lines.iter()
@@ -87,13 +88,13 @@ pub fn check(toml_path: impl AsRef<Path>) -> anyhow::Result<Vec<String>>
                 let match_str = cur_lines.first().with_context(||"Failed to get 'match_str'")?;
                 if cur_lines.iter().any(|f| f != match_str)
                 {
-                    mismatches.push(format_mismatch(match_str, &vec, &toml_path));
+                    mismatches.push(format_mismatch(match_str, &vec, &abs_target_path));
                     break;
                 }
                 offset -= 1;
                 cur_lines = sources.iter()
                     .map(|s| s.trimmed_line_by_offset(offset))
-                    .collect::<Result<_, _>>()?;
+                    .collect::<Vec<_>>();
             }
         }
     }
@@ -102,16 +103,13 @@ pub fn check(toml_path: impl AsRef<Path>) -> anyhow::Result<Vec<String>>
 }
 
 /// Formats the given vec of file positions with a mismatch at 'match_str'.
-/// Uses the given toml_path to display the file positions as relative paths if possible.
-fn format_mismatch(match_str: &str, vec: &Vec<FilePosition>, toml_path: impl AsRef<Path>) -> String
+/// Uses the given (absolute!) target_path to display the file positions as relative paths if possible.
+pub fn format_mismatch(match_str: &str, vec: &Vec<FilePosition>, abs_target_path: impl AsRef<Path>)
+    -> String
 {
-    // If parent cannot be found, just use the path itself -> strip_prefix will fail and abs path
-    // will be displayed.
-    let parent = toml_path.as_ref().parent().unwrap_or(toml_path.as_ref());
-    
     let group_str = vec.iter()
         .map(|p| format!("{:?}:{}:{}",
-                         p.path.strip_prefix(parent).unwrap_or(&p.path),
+                         p.path.strip_prefix(&abs_target_path).unwrap_or(&p.path),
                          p.row, p.column))
         .collect::<Vec<_>>().join(", ");
     format!("\"{}\"\n-> [{}]", match_str, group_str)

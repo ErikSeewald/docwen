@@ -16,13 +16,11 @@ where
     let mut parser = Parser::new();
     parser.set_language(&tree_sitter_cpp::LANGUAGE.into())?;
 
-    // (Name, Params), Locations;
     let mut functions: HashMap<FunctionID, Vec<FilePosition>> = HashMap::new();
     for path in paths
     {
         let source = fs::read_to_string(&path)?;
 
-        // IGNORE PREPROCESSOR COMPLETELY
         let filtered: String = mask_preprocessor(&source);
         let tree = parser.parse(&filtered, None).with_context(|| "Failed to parse tree")?;
 
