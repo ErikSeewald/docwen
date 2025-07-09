@@ -1,4 +1,5 @@
 use std::path::{PathBuf};
+use std::process;
 use clap::{Parser, Subcommand};
 use docwen::{docwen_check, toml_manager};
 
@@ -66,13 +67,14 @@ fn main() -> anyhow::Result<()>
                 let mismatches: Vec<String> = docwen_check::check(path)?;
                 match mismatches.len()
                 {
-                    0 => println!("Found no mismatches!"),
+                    0 => {println!("Found no mismatches!"); process::exit(0); }
                     _ =>
                         {
                             for m in &mismatches
                             {
                                 println!("Mismatch in: {}\n", m);
                             }
+                            process::exit(1);
                         }
                 }
             }
