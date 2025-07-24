@@ -1,8 +1,8 @@
 # docwen
 Docwen is a tool for automatically checking if docs match between C/C++ header and source files.
 
-By setting up a workflow in a (automatically managed) docwen.toml file, docwen can scan all the specified files and look for documentation inconsistencies.
-File pairs can be automatically generated (e.g. .h and .c files with matching names), auto ignored, and manually specified.
+By setting up a workflow in an automatically managed docwen.toml file, docwen can scan all the specified files and look for documentation inconsistencies.
+File pairs can be automatically generated (e.g., .h and .c files with matching names), auto-ignored, and manually specified.
 
 ## Setup
 ### Installation
@@ -33,8 +33,8 @@ to update the tracked files based on these settings (toml path can be omitted if
 | ```docwen check [<docwen.toml path>]``` | Runs the docwen check and outputs mismatches between docs if any are found
 
 ## Settings
-The *docwen.toml* file is split into two parts: The settings and a list of tracked files.
-Both can be modified by the user but the tracked files are also intended to be managed automatically.
+The *docwen.toml* file is split into two parts: the settings and a list of tracked files.
+Both can be modified by the user, but the tracked files are also intended to be managed automatically.
 
 Example:
 ```
@@ -57,5 +57,5 @@ files = ["example_file_2.h", "example_file_2.cpp", "alt_example_file_2.cpp"]
 
 ## TODO
 - Multi-line macros currently break the docwen parser
-- Add a mode that allows for non-qualified function name matching (e.g. docs of child class override can be matched)
+- Add a mode that allows for non-qualified function name matching (e.g., docs of child class override can be matched)
 - Expand test suite
