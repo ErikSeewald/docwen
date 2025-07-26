@@ -186,12 +186,13 @@ pub fn get_qualified_name(node: Node, source: &str, func_name: String) -> String
 }
 
 /// Masks out all preprocessor sections of the given src by replacing
-/// it with whitespace that preserves column and row positioning.
+/// them with whitespace that preserves column and row positioning.
+/// - Lines that begin (after optional whitespace) with '#' are masked.
+/// - Any following lines that continue via a trailing backslash are also masked.
 pub fn mask_preprocessor(src: &str) -> String
 {
-    // TODO: Multiline macros currently do not get masked
-    
     let mut out = String::with_capacity(src.len());
+    let mut in_continuation = false;
 
     // HANDLE EACH LINE SEPARATELY
     for line in src.split_inclusive(['\n', '\r'])
@@ -211,14 +212,21 @@ pub fn mask_preprocessor(src: &str) -> String
             None => (line, ""), // Last line of file, no newline
         };
 
-        if body.trim_start().starts_with('#')
+        let starts_with_hash = body.trim_start().starts_with('#');
+        if in_continuation || starts_with_hash
         {
-            // REPLACE WITH WHITESPACE
             out.extend(iter::repeat(' ').take(body.len()));
+            in_continuation = body.as_bytes().last() == Some(&b'\\');
         }
-        else { out.push_str(body); }
+        else
+        {
+            out.push_str(body);
+            in_continuation = false;
+        }
+
         out.push_str(eol);
     }
+
     out
 }
 

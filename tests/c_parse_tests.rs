@@ -138,24 +138,24 @@ mod c_parse_tests
         }
     }
 
-    // TODO
-    /*
     #[test]
     fn multiline_macro_fully_masked()
     {
-        const SRC: &str = "#define SUM(a,b) \\\n ((a)+(b))\n\nint foo();\n";
-        let masked = mask_preprocessor(SRC);
+        const SRC: &str = "#define SUM(a,b) \\\n ((a)+(b))\n\n#define PRINT_VALUES(x, y) \\\n do \
+        { \\\n     printf(\"x = %d\\n\", (x)); \\\n     printf(\"y = %d\\n\", (y)); \\\n } \
+        while(0)\n\nint foo();\n";
 
+        let masked = mask_preprocessor(SRC);
         assert!(masked
             .lines()
-            .take(2)
+            .take(9)
             .all(|l| l.chars().all(|c| c == ' ')));
         assert_eq!(masked.len(), SRC.len());
 
         let tree = parse_tree(&masked);
         let id = get_function_id(first_decl(&tree), &masked, true).unwrap();
         assert_eq!(id.name, "foo");
-    }*/
+    }
 
     #[test]
     fn template_plus_trailing_return_type()

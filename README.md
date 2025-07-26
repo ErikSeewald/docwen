@@ -79,6 +79,3 @@ manual = ["example_file", "alt_example_file"] # Both names need to be added here
 name = "example_file"
 files = ["example_file.h", "example_file.c", "alt_example_file.c"]
 ```
-
-## TODO
-- Multi-line macros currently break the docwen parser
