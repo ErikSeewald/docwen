@@ -13,7 +13,7 @@ pub const DEFAULT_TOML: &str = r#"[settings]
 target = "src"
 match_extensions = ["h", "c", "hpp", "cc", "cpp"]
 mode = "MATCH_FUNCTION_DOCS"
-ignore = []
+manual = []
 "#;
 
 /// Implements the docwen *create* command.
@@ -90,28 +90,24 @@ where
     let mut groups: HashMap<String, Vec<PathBuf>> = HashMap::new();
     for path in paths
     {
-        // SKIP OTHER EXTENSIONS
         match path.extension().and_then(OsStr::to_str)
         {
             Some(e) if match_extensions.contains(&e.to_ascii_lowercase()) => {},
             _ => continue,
         };
 
-        // GET STEM
         let stem = match path.file_stem().and_then(OsStr::to_str)
         {
             Some(s) => s.to_owned().to_ascii_lowercase(),
             None => continue,
         };
 
-        // CHECK IGNORE AND ADD
-        if !settings.ignore.contains(&stem)
+        if !settings.manual.contains(&stem)
         {
             groups.entry(stem).or_default().push(path);
         }
     }
 
-    // CONVERT
     groups
         .into_iter()
         .map(|(name, files)| { FileGroup { name, files } })

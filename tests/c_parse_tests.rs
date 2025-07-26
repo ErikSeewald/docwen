@@ -70,8 +70,8 @@ mod c_parse_tests
         // Declaration should still parse
         let tree = parse_tree(&masked);
         let decl = first_decl(&tree);
-        let id = get_function_id(decl, &masked).unwrap();
-        assert_eq!(id.qualified_name, "foo");
+        let id = get_function_id(decl, &masked, true).unwrap();
+        assert_eq!(id.name, "foo");
     }
 
     #[test]
@@ -82,7 +82,7 @@ mod c_parse_tests
         assert!(masked.lines().next().unwrap().chars().all(|c| c == ' '));
         assert_eq!(masked.len(), SRC.len());
         let tree = parse_tree(&masked);
-        assert!(get_function_id(first_decl(&tree), &masked).is_some());
+        assert!(get_function_id(first_decl(&tree), &masked, true).is_some());
     }
 
     #[test]
@@ -134,7 +134,7 @@ mod c_parse_tests
             assert_eq!(decl_orig, decl_masked);
 
             let tree = parse_tree(&masked);
-            assert!(get_function_id(first_decl(&tree), &masked).is_some());
+            assert!(get_function_id(first_decl(&tree), &masked, true).is_some());
         }
     }
 
@@ -153,8 +153,8 @@ mod c_parse_tests
         assert_eq!(masked.len(), SRC.len());
 
         let tree = parse_tree(&masked);
-        let id = get_function_id(first_decl(&tree), &masked).unwrap();
-        assert_eq!(id.qualified_name, "foo");
+        let id = get_function_id(first_decl(&tree), &masked, true).unwrap();
+        assert_eq!(id.name, "foo");
     }*/
 
     #[test]
@@ -165,8 +165,8 @@ mod c_parse_tests
             auto add(T a, T b) -> T;
         "#;
         let tree = parse_tree(SRC);
-        let id = get_function_id(first_decl(&tree), SRC).unwrap();
-        assert_eq!(id.qualified_name, "add");
+        let id = get_function_id(first_decl(&tree), SRC, true).unwrap();
+        assert_eq!(id.name, "add");
         assert!(
             compact(&id.params).starts_with("(Ta,Tb)"),
             "params were: {}",
@@ -190,7 +190,7 @@ mod c_parse_tests
         let tmp = tempdir().unwrap();
         let p1 = write(&tmp, "a.cpp", "void dup(int);");
         let p2 = write(&tmp, "b.cpp", "void dup(double);");
-        let map = find_function_positions([p1, p2]).unwrap();
+        let map = find_function_positions([p1, p2], true).unwrap();
         assert!(map.is_empty(), "Map should be empty, got {map:?}");
     }
 
@@ -200,9 +200,9 @@ mod c_parse_tests
         let tmp = tempdir().unwrap();
         let p1 = write(&tmp, "decl.hpp", "void same();");
         let p2 = write(&tmp, "def.cpp",  "void same() {}");
-        let map = find_function_positions([p1.clone(), p2.clone()]).unwrap();
+        let map = find_function_positions([p1.clone(), p2.clone()], true).unwrap();
         assert_eq!(map.len(), 1);
-        let fid = FunctionID { qualified_name: "same".into(), params: "()".into() };
+        let fid = FunctionID { name: "same".into(), params: "()".into() };
         let spots = map.get(&fid).expect("Missing key");
         assert_eq!(spots.len(), 2);
         let paths: Vec<_> = spots.iter().map(|p| p.path.clone()).collect();
@@ -229,9 +229,9 @@ mod c_parse_tests
         "#;
         let tree = parse_tree(CODE);
         let decl = first_decl(&tree);
-        let id = get_function_id(decl, CODE).unwrap();
+        let id = get_function_id(decl, CODE, true).unwrap();
 
-        assert_eq!(id.qualified_name, "util::A::bar");
+        assert_eq!(id.name, "util::A::bar");
         assert_eq!(compact(&id.params), "()");
     }
 
@@ -244,8 +244,8 @@ mod c_parse_tests
             }
         "#;
         let tree = parse_tree(SRC);
-        let id = get_function_id(first_decl(&tree), SRC).unwrap();
-        assert_eq!(id.qualified_name, "outer::inner::U::poke");
+        let id = get_function_id(first_decl(&tree), SRC, true).unwrap();
+        assert_eq!(id.name, "outer::inner::U::poke");
         assert_eq!(compact(&id.params), "()");
     }
 
@@ -274,11 +274,11 @@ mod c_parse_tests
         let p2 = write(&tmp, "f2.cpp", "void dup();");
         let p3 = write(&tmp, "other.cpp", "void unique();");
 
-        let map = find_function_positions([p1, p2, p3]).unwrap();
+        let map = find_function_positions([p1, p2, p3], true).unwrap();
         assert_eq!(map.len(), 1);
 
         let fid = FunctionID {
-            qualified_name: "dup".into(),
+            name: "dup".into(),
             params: "()".into(),
         };
         let positions = map.get(&fid).unwrap();
@@ -304,10 +304,10 @@ mod c_parse_tests
             let p1 = write(&tmp, "f1.cpp", &text);
             let p2 = write(&tmp, "f2.cpp", &text);
 
-            let map = find_function_positions([p1, p2]).unwrap();
+            let map = find_function_positions([p1, p2], true).unwrap();
 
             let fid = FunctionID {
-                qualified_name: "dup".into(),
+                name: "dup".into(),
                 params: "()".into(),
             };
             let positions = map.get(&fid).unwrap();
@@ -324,8 +324,8 @@ mod c_parse_tests
             struct Mem { void* operator new[](std::size_t); };
         "#;
         let tree = parse_tree(SRC);
-        let id = get_function_id(first_decl(&tree), SRC).unwrap();
-        assert_eq!(id.qualified_name, "Mem::operator new[]");
+        let id = get_function_id(first_decl(&tree), SRC, true).unwrap();
+        assert_eq!(id.name, "Mem::operator new[]");
     }
 
     #[test]
@@ -335,10 +335,10 @@ mod c_parse_tests
         let p1 = write(&tmp, "a.cpp", "void f(int x = 0);");
         let p2 = write(&tmp, "b.cpp", "void f(int x = 0);");
 
-        let map = find_function_positions([p1, p2]).unwrap();
+        let map = find_function_positions([p1, p2], true).unwrap();
         assert_eq!(map.len(), 1);
         let fid = FunctionID {
-            qualified_name: "f".into(),
+            name: "f".into(),
             params: "(int x = 0)".into(),
         };
         assert_eq!(map[&fid].len(), 2);
@@ -351,7 +351,7 @@ mod c_parse_tests
         let p1 = write(&tmp, "a.cpp", "void g(int x = 0);");
         let p2 = write(&tmp, "b.cpp", "void g(int x);");
 
-        let map = find_function_positions([p1, p2]).unwrap();
+        let map = find_function_positions([p1, p2], true).unwrap();
         assert!(map.is_empty());
     }
 
@@ -362,7 +362,7 @@ mod c_parse_tests
         let p1 = write(&tmp, "n1.cpp", "namespace n1 { void h(); }");
         let p2 = write(&tmp, "n2.cpp", "namespace n2 { void h(); }");
 
-        let map = find_function_positions([p1, p2]).unwrap();
+        let map = find_function_positions([p1, p2], true).unwrap();
         assert!(map.is_empty());
     }
 
@@ -374,8 +374,8 @@ mod c_parse_tests
             void log(Args&&...);
         "#;
         let tree = parse_tree(SRC);
-        let id = get_function_id(first_decl(&tree), SRC).unwrap();
-        assert_eq!(id.qualified_name, "log");
+        let id = get_function_id(first_decl(&tree), SRC, true).unwrap();
+        assert_eq!(id.name, "log");
         assert!(
             compact(&id.params).contains("..."),
             "expected pack, got {}", id.params
@@ -390,8 +390,8 @@ mod c_parse_tests
         let p2 = write(&tmp, "b.cpp", "void triple();");
         let p3 = write(&tmp, "c.cpp", "void triple();");
 
-        let map = find_function_positions([p1, p2, p3]).unwrap();
-        let fid = FunctionID { qualified_name: "triple".into(), params: "()".into() };
+        let map = find_function_positions([p1, p2, p3], true).unwrap();
+        let fid = FunctionID { name: "triple".into(), params: "()".into() };
         assert_eq!(map[&fid].len(), 3);
     }
 
@@ -400,7 +400,7 @@ mod c_parse_tests
     {
         const SRC: &str = "int global_variable;";
         let tree = parse_tree(SRC);
-        assert!(get_function_id(tree.root_node(), SRC).is_none());
+        assert!(get_function_id(tree.root_node(), SRC, true).is_none());
     }
 
     #[test]
@@ -433,8 +433,8 @@ mod c_parse_tests
         let decl = def
             .child_by_field_name("declarator")
             .expect("missing declarator");
-        let id = get_function_id(decl, SRC).unwrap();
-        assert_eq!(id.qualified_name, "ns::C::bar");
+        let id = get_function_id(decl, SRC, true).unwrap();
+        assert_eq!(id.name, "ns::C::bar");
         assert_eq!(compact(&id.params), "()");
     }
 
@@ -449,9 +449,9 @@ mod c_parse_tests
         "#;
         let tree = parse_tree(SRC);
         let decl = first_decl(&tree);
-        let id = get_function_id(decl, SRC).unwrap();
+        let id = get_function_id(decl, SRC, true).unwrap();
 
-        assert_eq!(id.qualified_name, "Outer<int>::Inner::baz");
+        assert_eq!(id.name, "Outer<int>::Inner::baz");
     }
 
     #[test]
@@ -464,8 +464,8 @@ mod c_parse_tests
             }
         "#;
         let tree = parse_tree(SRC);
-        let id = get_function_id(first_decl(&tree), SRC).unwrap();
-        assert_eq!(id.qualified_name, "n1::n2::log");
+        let id = get_function_id(first_decl(&tree), SRC, true).unwrap();
+        assert_eq!(id.name, "n1::n2::log");
         assert!(
             compact(&id.params).ends_with("...);") || compact(&id.params).contains("..."),
             "pack missing in params: {}", id.params
@@ -482,8 +482,8 @@ mod c_parse_tests
             };
         "#;
         let tree = parse_tree(SRC);
-        let id = get_function_id(first_decl(&tree), SRC).unwrap();
-        assert_eq!(id.qualified_name, "W::friend_fn");
+        let id = get_function_id(first_decl(&tree), SRC, true).unwrap();
+        assert_eq!(id.name, "W::friend_fn");
         assert_eq!(compact(&id.params), "(W&)");
     }
     
@@ -493,9 +493,9 @@ mod c_parse_tests
         const SRC: &str =
             r#"long double operator"" _deg(long double);"#;
         let tree = parse_tree(SRC);
-        let id = get_function_id(first_decl(&tree), SRC).unwrap();
-        assert!(id.qualified_name.contains("_deg"), "name was {}", id.qualified_name);
-        assert!(id.qualified_name.starts_with("operator"));
+        let id = get_function_id(first_decl(&tree), SRC, true).unwrap();
+        assert!(id.name.contains("_deg"), "name was {}", id.name);
+        assert!(id.name.starts_with("operator"));
     }
     
     #[test]
@@ -506,8 +506,8 @@ mod c_parse_tests
             void* operator new(std::size_t, void* place);
         "#;
         let tree = parse_tree(SRC);
-        let id = get_function_id(first_decl(&tree), SRC).unwrap();
-        assert_eq!(id.qualified_name, "operator new");
+        let id = get_function_id(first_decl(&tree), SRC, true).unwrap();
+        assert_eq!(id.name, "operator new");
         assert!(compact(&id.params).starts_with("(std::size_t"));
     }
     
@@ -520,8 +520,37 @@ mod c_parse_tests
             void constrained_fn(T);
         "#;
         let tree = parse_tree(SRC);
-        let id = get_function_id(first_decl(&tree), SRC).unwrap();
-        assert_eq!(id.qualified_name, "constrained_fn");
+        let id = get_function_id(first_decl(&tree), SRC, true).unwrap();
+        assert_eq!(id.name, "constrained_fn");
         assert!(compact(&id.params).starts_with("(T"));
+    }
+
+    #[test]
+    fn mismatches_unqualified_correctly()
+    {
+        let tmp = tempdir().unwrap();
+        let p1 = write(&tmp, "a.cpp", "void A::f(int x = 0);");
+        let p2 = write(&tmp, "b.cpp", "void B::f(int x = 0);");
+
+        let map = find_function_positions([p1, p2], true).unwrap();
+        assert_eq!(map.len(), 0);
+    }
+
+    #[test]
+    fn matches_unqualified_correctly()
+    {
+        let tmp = tempdir().unwrap();
+        let p1 = write(&tmp, "a.cpp", "void A::f(int x = 0);");
+        let p2 = write(&tmp, "b.cpp", "void B::f(int x = 0);");
+        let p3 = write(&tmp, "cd.cpp", "void C::D::f(int x = 0);");
+        let p4 = write(&tmp, "f.cpp", "void f(int x = 0);");
+
+        let map = find_function_positions([p1, p2, p3, p4], false).unwrap();
+        assert_eq!(map.len(), 1);
+        let fid = FunctionID {
+            name: "f".into(),
+            params: "(int x = 0)".into(),
+        };
+        assert_eq!(map[&fid].len(), 4);
     }
 }

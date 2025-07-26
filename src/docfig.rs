@@ -30,7 +30,7 @@ pub struct Settings
     pub mode: Mode,
 
     #[serde(default)]
-    pub ignore: Vec<String>
+    pub manual: Vec<String>
 }
 
 /// Operational modes of docwen
@@ -38,7 +38,8 @@ pub struct Settings
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum Mode
 {
-    MatchFunctionDocs
+    MatchFunctionDocs,
+    MatchFunctionDocsUnqualified
 }
 
 /// A single group of files that will be checked for matching docs

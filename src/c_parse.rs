@@ -7,9 +7,10 @@ use anyhow::Context;
 use crate::docwen_check::{FilePosition, FunctionID};
 
 /// Finds all function matches (based on qualifiers, name and parameters)
-/// in the given list of files.
-/// Maps them by FunctionID -> Vec<FilePosition>
-pub fn find_function_positions<I>(paths: I) -> anyhow::Result<HashMap<FunctionID, Vec<FilePosition>>>
+/// in the given list of files. Maps them by FunctionID -> Vec<FilePosition>.
+/// 'use_qualifiers' specifies whether qualifiers should be used to differentiate as well
+pub fn find_function_positions<I>(paths: I, use_qualifiers: bool)
+    -> anyhow::Result<HashMap<FunctionID, Vec<FilePosition>>>
 where
     I: IntoIterator<Item = PathBuf>,
 {
@@ -25,7 +26,7 @@ where
         let tree = parser.parse(&filtered, None).with_context(|| "Failed to parse tree")?;
 
         let root = tree.root_node();
-        extract_functions(root, &filtered, path, &mut functions);
+        extract_functions(root, &filtered, path, &mut functions, use_qualifiers);
     }
 
     functions.retain(|_, vec| vec.len() > 1 );
@@ -34,8 +35,10 @@ where
 
 /// Extracts all functions from the tree spanned by the given root node.
 /// Uses the given source text and file path to insert the functions into the given map.
+/// 'use_qualifiers' defines whether qualifiers are used to differentiate functions instead of
+/// basic name and param matching.
 pub fn extract_functions(root: Node, source: &str, file: PathBuf,
-                     map: &mut HashMap<FunctionID, Vec<FilePosition>>)
+                     map: &mut HashMap<FunctionID, Vec<FilePosition>>, use_qualifiers: bool)
 {
     // Recursively visit all nodes and apply the function
     visit_all_nodes(root, &mut |node| {
@@ -43,7 +46,7 @@ pub fn extract_functions(root: Node, source: &str, file: PathBuf,
         {
             "function_definition" | "function_declarator" if !has_definition_ancestor(node) =>
                 {
-                    if let Some(id) = get_function_id(node, source)
+                    if let Some(id) = get_function_id(node, source, use_qualifiers)
                     {
                         let pos = FilePosition{
                             path: file.clone(),
@@ -61,17 +64,26 @@ pub fn extract_functions(root: Node, source: &str, file: PathBuf,
     });
 }
 
-/// Returns the full qualified function signature as a FunctionID.
+/// Returns the full (optionally: qualified) function signature as a FunctionID.
 /// If no FunctionID can be derived from the given node, None is returned.
-pub fn get_function_id(node: Node, source: &str) -> Option<FunctionID>
+pub fn get_function_id(node: Node, source: &str, with_qualifiers: bool) -> Option<FunctionID>
 {
     let declarator = find_declarator(node)?;
 
-    let (name, params) = get_name_and_params(declarator, source);
+    let (name_option, params) = get_name_and_params(declarator, source);
+    let name = name_option?;
     let params = params.unwrap_or_else(|| String::from("()"));
 
-    let qualified_name = get_qualified_name(node, source, name?);
-    Some(FunctionID{qualified_name, params})
+    if with_qualifiers
+    {
+        let qualified_name = get_qualified_name(node, source, name);
+        Some(FunctionID{name: qualified_name, params})
+    }
+    else
+    {
+        let unqualified = String::from(name.split("::").last().unwrap_or(&name));
+        Some(FunctionID{name: unqualified, params})
+    }
 }
 
 /// Returns whether the given node has a 'function_definition' as an ancestor.

@@ -34,15 +34,15 @@ mod toml_manager_tests
         );
     }
 
-    /// Helper to build Settings with arbitrary match/ignore sets
-    fn make_settings(match_extensions: &[&str], ignore: &[&str]) -> Settings
+    /// Helper to build Settings with arbitrary match/manual sets
+    fn make_settings(match_extensions: &[&str], manual: &[&str]) -> Settings
     {
         Settings
         {
             target: ".".into(),
             match_extensions: match_extensions.iter().map(|s| s.to_string()).collect(),
             mode: MatchFunctionDocs,
-            ignore: ignore.iter().map(|s| s.to_string()).collect(),
+            manual: manual.iter().map(|s| s.to_string()).collect(),
         }
     }
 
@@ -70,7 +70,7 @@ mod toml_manager_tests
     }
 
     #[test]
-    fn group_by_stem_respects_ignore_list()
+    fn group_by_stem_respects_manual_list()
     {
         let settings = make_settings(&["c"], &["skipme"]);
         let paths = vec![PathBuf::from("skipme.c"), PathBuf::from("keepme.c")];
@@ -105,7 +105,7 @@ mod toml_manager_tests
     }
 
     #[test]
-    fn group_by_stem_ignore_list_case_insensitive()
+    fn group_by_stem_manual_list_case_insensitive()
     {
         let settings = make_settings(&["c"], &["skipme"]);
         let paths = vec![PathBuf::from("SkipMe.c"), PathBuf::from("keepme.c")];
@@ -150,6 +150,40 @@ mod toml_manager_tests
         assert!(files.contains(&PathBuf::from(c_path.strip_prefix(&root).unwrap()))
             && files.contains(&PathBuf::from(h_path.strip_prefix(&root).unwrap())));
     }
+    #[test]
+    fn update_toml_ignores_manual_groups()
+    {
+        let dir = tempdir().unwrap();
+        let root = dir.path().join("src");
+        fs::create_dir(&root).unwrap();
+
+        let c_path = root.join("bar.c");
+        let h_path = root.join("bar.h");
+
+        fs::write(&c_path, "").unwrap();
+        fs::write(&h_path, "").unwrap();
+
+        let toml_path = dir.path().join("docwen.toml");
+        create_default(&toml_path).unwrap();
+
+        let mut contents = fs::read_to_string(&toml_path).unwrap();
+        contents = contents.replace("manual = []", "manual = [\"bar\"]");
+        contents.push_str(r#"
+        [[filegroup]]
+        name = "bar"
+        files = ["bar.c", "car.c"]
+        "#);
+        fs::write(&toml_path, contents).unwrap();
+
+        update_toml(&toml_path).unwrap();
+        let docfig = Docfig::from_file(&toml_path).unwrap();
+
+        let files = &docfig.file_groups.get(0).unwrap().files;
+        assert_eq!(docfig.file_groups.len(), 1);
+        assert_eq!(files.len(), 2);
+        assert!(files.contains(&PathBuf::from("bar.c")));
+        assert!(files.contains(&PathBuf::from("car.c")));
+    }
 
     #[test]
     fn update_toml_augments_group_without_duplication()
@@ -169,7 +203,7 @@ mod toml_manager_tests
         contents.push_str(r#"
         [[filegroup]]
         name = "foo"
-        files = ["src/foo.c"]
+        files = ["foo.c"]
         "#);
         fs::write(&toml_path, contents).unwrap();
 

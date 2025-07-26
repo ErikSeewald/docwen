@@ -37,7 +37,7 @@ mod docfig_tests
         target = "src"
         mode = "MATCH_FUNCTION_DOCS"
         match_extensions = ["h", "c"]
-        ignore = ["temp", "test"]
+        manual = ["temp", "test"]
 
         {}
         "#,
@@ -64,7 +64,7 @@ mod docfig_tests
         target = "src"
         match_extensions = ["h", "c"]
         mode = "MATCH_FUNCTION_DOCS"
-        ignore = ["some", "thing"]
+        manual = ["some", "thing"]
 
         [[filegroup]]
         name = "a"
@@ -82,7 +82,7 @@ mod docfig_tests
         assert_eq!(docfig.settings.target, PathBuf::from("src"));
         assert_eq!(docfig.settings.match_extensions, vec!["h", "c"]);
         matches!(docfig.settings.mode, Mode::MatchFunctionDocs);
-        assert_eq!(docfig.settings.ignore, vec!["some", "thing"]);
+        assert_eq!(docfig.settings.manual, vec!["some", "thing"]);
 
         // FILE_GROUPS
         assert_eq!(docfig.file_groups.len(), 2);
@@ -97,7 +97,7 @@ mod docfig_tests
         let docfig = Docfig::from_file(&path).unwrap();
 
         assert!(docfig.settings.match_extensions.is_empty());
-        assert!(docfig.settings.ignore.is_empty());
+        assert!(docfig.settings.manual.is_empty());
         assert!(docfig.file_groups.is_empty());
     }
 
@@ -118,7 +118,7 @@ mod docfig_tests
         let docfig = Docfig::from_file(&path).unwrap();
 
         assert!(docfig.settings.match_extensions.is_empty());
-        assert!(docfig.settings.ignore.is_empty());
+        assert!(docfig.settings.manual.is_empty());
     }
 
     #[test]

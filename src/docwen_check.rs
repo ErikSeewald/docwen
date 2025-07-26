@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use anyhow::Context;
 use crate::{c_parse, toml_manager};
 use crate::docfig::{Docfig};
+use crate::docfig::Mode::MatchFunctionDocsUnqualified;
 
 /// Defines a position (column, row) inside a source file.
 #[derive(Debug)]
@@ -16,11 +17,11 @@ pub struct FilePosition
     pub column: usize
 }
 
-/// Defines an ID for a function through the qualified name and params.
+/// Defines an ID for a function through the (optionally: qualified) name and params.
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub struct FunctionID
 {
-    pub qualified_name: String,
+    pub name: String,
     pub params: String
 }
 
@@ -57,12 +58,13 @@ pub fn check(toml_path: impl AsRef<Path>) -> anyhow::Result<Vec<String>>
     let abs_target_path = toml_manager::get_absolute_root(&toml_path, &docfig.settings.target)?;
 
     // GET ALL FUNCTION POSITIONS THAT NEED TO BE CHECKED
+    let use_qualifiers = docfig.settings.mode != MatchFunctionDocsUnqualified;
     let root = toml_manager::get_absolute_root(&toml_path, &docfig.settings.target)?;
     let mut position_maps: Vec<HashMap<FunctionID, Vec<FilePosition>>> = Vec::new();
     for file_group in docfig.file_groups
     {
         let abs_files = file_group.files.iter().map(|f| root.join(f)).collect::<Vec<_>>();
-        position_maps.push(c_parse::find_function_positions(abs_files)?);
+        position_maps.push(c_parse::find_function_positions(abs_files, use_qualifiers)?);
     }
 
     // CHECK FOR MATCHING DOCS

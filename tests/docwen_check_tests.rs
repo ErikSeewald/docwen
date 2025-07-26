@@ -162,10 +162,10 @@ mod docwen_check_tests
     #[test]
     fn function_id_equality_and_hashing()
     {
-        let f1 = FunctionID { qualified_name: "pkg::foo".into(), params: "(i32)".into() };
-        let f2 = FunctionID { qualified_name: "pkg::foo".into(), params: "(i32)".into() };
-        let f3 = FunctionID { qualified_name: "pkg::foo".into(), params: "(i32, i32)".into() };
-        let f4 = FunctionID { qualified_name: "pkg::bar".into(), params: "(i32)".into() };
+        let f1 = FunctionID { name: "pkg::foo".into(), params: "(i32)".into() };
+        let f2 = FunctionID { name: "pkg::foo".into(), params: "(i32)".into() };
+        let f3 = FunctionID { name: "pkg::foo".into(), params: "(i32, i32)".into() };
+        let f4 = FunctionID { name: "pkg::bar".into(), params: "(i32)".into() };
 
         assert_eq!(f1, f2);
         assert_ne!(f1, f3);
@@ -177,7 +177,7 @@ mod docwen_check_tests
         set.insert(f3);
         assert_eq!(set.len(), 2);
         assert!(set.contains(&FunctionID {
-            qualified_name: "pkg::foo".into(),
+            name: "pkg::foo".into(),
             params: "(i32)".into()
         }));
     }
